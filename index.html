@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
 <meta charset="UTF-8">
 <title>Solutionwheel of Fortune - Vodafone Edition</title>
@@ -7,7 +7,8 @@
 <style>
 :root {
   --tile-size: 420px;
-  --red: #e60000; /* Official Vodafone Red */
+  --voda-red: #e60000; 
+  --voda-light-red: #ff4d4d;
   --grey-btn-bg: rgba(0,0,0,0.08);
   --grey-btn-border: rgba(0,0,0,0.16);
   --grey-btn-text: rgba(0,0,0,0.55);
@@ -19,7 +20,7 @@ body {
 }
 h1 {
   text-align:center;
-  color:var(--red);
+  color:var(--voda-red);
   margin-bottom:34px;
 }
 .layout {
@@ -55,25 +56,30 @@ canvas {
 }
 .center-logo {
   position:absolute;
-  inset:0;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  pointer-events:none;
-  z-index:4;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 75px; 
+  height: 75px;
+  background: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 4;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
-/* Styling für das eingebettete SVG Logo */
-.center-logo svg { 
-    width: 25%; 
-    height: auto; 
-    filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.2));
+.center-logo img { 
+    width: 55px; /* Größe des Logos im weißen Kreis */
+    height: auto;
 }
 
 button {
   padding:12px 18px;
   border:none;
   border-radius:8px;
-  background:var(--red);
+  background:var(--voda-red);
   color:white;
   cursor:pointer;
   font-weight: bold;
@@ -163,10 +169,7 @@ tr.last-picked td:first-child::after { content:" 🎉"; }
       <div class="pointer"></div>
       <canvas id="wheel"></canvas>
       <div class="center-logo">
-        <svg viewBox="0 0 2500 2500" xmlns="http://www.w3.org/2000/svg">
-          <path d="M1250 0c690.37 0 1250 559.63 1250 1250S1940.37 2500 1250 2500 0 1940.37 0 1250 559.63 0 1250 0z" fill="#fff"/>
-          <path d="M1276.1 487.35c-284.15 0-515.22 230.12-515.22 515.21 0 127.76 46.54 244.62 123.63 334.86L629.74 1957.5h277.67l148.06-339.29c61.64 45.41 138.16 72.33 220.63 72.33 211.23 0 382.46-171.22 382.46-382.45 0-211.24-171.23-382.46-382.46-382.46-118.06 0-222.95 53.64-292.05 137.51 32.54-52.09 51.52-114.13 51.52-180.59 0-186.23-150.8-337.03-337.03-337.03 3.65 0 7.23.13 10.82.38 52.85-53.14 125.75-86.13 206.71-86.13 162.24 0 293.75 131.51 293.75 293.74 0 45.54-10.37 88.66-28.93 127.13l213.91 213.91c53.39-100.93 84.01-215.7 84.01-337.51 0-212.18-128.53-394.27-309.84-471.19z" fill="#e60000"/>
-        </svg>
+        <img src="https://upload.wikimedia.org/wikipedia/de/a/a6/Vodafone_icon.svg" alt="Vodafone Logo">
       </div>
     </div>
 
@@ -231,7 +234,8 @@ function draw() {
     ctx.beginPath();
     ctx.moveTo(center, center);
     ctx.arc(center, center, radius, s, s + slice);
-    // Vodafone Farben-Schema
+    
+    // Vodafone Farbschema
     ctx.fillStyle = i % 2 ? "#e60000" : "#ff3333";
     ctx.fill();
     ctx.strokeStyle = "white";
@@ -295,7 +299,7 @@ function selectedIndexForRotation(rotation) {
 spinBtn.onclick = () => {
   if (spinBtn.disabled) return;
   spinBtn.disabled = true;
-  document.getElementById("result").textContent = "Spinning...";
+  document.getElementById("result").textContent = "Dreht...";
 
   const targetIdx = getWeightedIndex();
   const baseTarget = pointerAngle - (targetIdx + 0.5) * slice;
@@ -328,7 +332,7 @@ spinBtn.onclick = () => {
       localStorage.setItem(lastKey, picked);
 
       renderBoard();
-      document.getElementById("result").textContent = "🎉 Selected: " + picked;
+      document.getElementById("result").textContent = "🎉 Ausgewählt: " + picked;
       spinBtn.disabled = false;
     }
   }
