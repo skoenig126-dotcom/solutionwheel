@@ -1,13 +1,20 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <title>Solutionwheel of Fortune - Vodafone Edition</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- ════════════════════════════════════════════════════════
+     SCHRITT 1: Firebase SDK laden
+     ════════════════════════════════════════════════════════ -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
 <style>
 :root {
   --tile-size: 420px;
-  --voda-red: #e60000; 
+  --voda-red: #e60000;
   --voda-light-red: #ff4d4d;
   --grey-btn-bg: rgba(0,0,0,0.08);
   --grey-btn-border: rgba(0,0,0,0.16);
@@ -30,7 +37,6 @@ h1 {
   flex-wrap:wrap;
 }
 .wheel-col,.board-col { width:var(--tile-size); }
-
 .wheel-wrap {
   position:relative;
   width:var(--tile-size);
@@ -59,7 +65,7 @@ canvas {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 75px; 
+  width: 75px;
   height: 75px;
   background: white;
   border-radius: 50%;
@@ -70,11 +76,10 @@ canvas {
   z-index: 4;
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
-.center-logo img { 
-    width: 55px; /* Größe des Logos im weißen Kreis */
-    height: auto;
+.center-logo img {
+  width: 55px;
+  height: auto;
 }
-
 button {
   padding:12px 18px;
   border:none;
@@ -85,7 +90,6 @@ button {
   font-weight: bold;
 }
 button:disabled { opacity:.6; cursor:not-allowed; }
-
 .spin-row{
   width:100%;
   display:flex;
@@ -95,7 +99,6 @@ button:disabled { opacity:.6; cursor:not-allowed; }
 #spinBtn{
   min-width:120px;
 }
-
 .panel {
   height:var(--tile-size);
   background:white;
@@ -105,7 +108,6 @@ button:disabled { opacity:.6; cursor:not-allowed; }
   display:flex;
   flex-direction:column;
 }
-
 .panel-header{
   display:flex;
   align-items:center;
@@ -118,7 +120,6 @@ button:disabled { opacity:.6; cursor:not-allowed; }
   font-size:16px;
   color: rgba(0,0,0,0.82);
 }
-
 #resetBtn{
   padding:6px 10px;
   font-size:12px;
@@ -132,7 +133,6 @@ button:disabled { opacity:.6; cursor:not-allowed; }
   opacity:1;
   background: rgba(0,0,0,0.10);
 }
-
 table {
   width:100%;
   border-collapse:collapse;
@@ -146,7 +146,6 @@ th,td {
 td.count,th.count { text-align:right; }
 tr.leader td { font-weight:800; }
 tr.last-picked td:first-child::after { content:" 🎉"; }
-
 #result {
   margin-top:12px;
   text-align:center;
@@ -154,7 +153,12 @@ tr.last-picked td:first-child::after { content:" 🎉"; }
   font-size:18px;
   min-height: 1.2em;
 }
-
+#sync-status {
+  text-align: center;
+  font-size: 12px;
+  color: #999;
+  margin-top: 6px;
+}
 @media(max-width:900px){
   :root{--tile-size:min(420px,92vw);}
 }
@@ -162,7 +166,6 @@ tr.last-picked td:first-child::after { content:" 🎉"; }
 </head>
 <body>
 <h1>Solutionwheel of Fortune</h1>
-
 <div class="layout">
   <div class="wheel-col">
     <div class="wheel-wrap">
@@ -172,12 +175,11 @@ tr.last-picked td:first-child::after { content:" 🎉"; }
         <img src="https://upload.wikimedia.org/wikipedia/de/a/a6/Vodafone_icon.svg" alt="Vodafone Logo">
       </div>
     </div>
-
     <div class="spin-row">
       <button id="spinBtn">Spin</button>
     </div>
-
     <div id="result"></div>
+    <div id="sync-status">⏳ Connecting to database…</div>
   </div>
 
   <div class="board-col">
@@ -186,7 +188,6 @@ tr.last-picked td:first-child::after { content:" 🎉"; }
         <h3>Leaderboard</h3>
         <button id="resetBtn" type="button">Reset</button>
       </div>
-
       <table>
         <thead>
           <tr><th>Name</th><th class="count">Selections</th></tr>
@@ -198,50 +199,78 @@ tr.last-picked td:first-child::after { content:" 🎉"; }
 </div>
 
 <script>
-const names = ["Mathias","Prachee","Argetim","Ayse","Shramik","Joana","Lubna","Sandeep","Wasim", "Stephan"];
-const key = "solutionwheel_counts";
-const lastKey = "solutionwheel_last";
+// ════════════════════════════════════════════════════════════
+// SCHRITT 2: Firebase-Konfiguration eintragen
+//
+// Gehe zu https://console.firebase.google.com/
+//   → Neues Projekt erstellen
+//   → "Realtime Database" aktivieren (Startmodus: Testmodus, 30 Tage)
+//   → Projekteinstellungen → "Web-App hinzufügen"
+//   → Die Werte unten mit deinen echten Werten ersetzen
+// ════════════════════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey:            "AIzaSyAor0F8R-T83wHhm9gwrK6YpZaUEVJMwlU",
+  authDomain:        "combat-coach-combos.firebaseapp.com",
+  databaseURL:       "https://combat-coach-combos-default-rtdb.firebaseio.com",
+  projectId:         "combat-coach-combos",
+  storageBucket:     "combat-coach-combos.firebasestorage.app",
+  messagingSenderId: "1046008038705",
+  appId:             "1:1046008038705:web:3ed4d33c8242705072dc10",
+  measurementId:     "G-8MK190CRRN"
+};
 
-const canvas = document.getElementById("wheel");
-const ctx = canvas.getContext("2d");
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// Datenbankpfade
+const countsRef = db.ref('solutionwheel/counts');
+const lastRef   = db.ref('solutionwheel/last');
+
+// ════════════════════════════════════════════════════════════
+// App-Logik
+// ════════════════════════════════════════════════════════════
+const names = ["Mathias","Prachee","Argetim","Ayse","Shramik","Joana","Lubna","Sandeep","Wasim","Stephan"];
+
+const canvas  = document.getElementById("wheel");
+const ctx     = canvas.getContext("2d");
 const spinBtn = document.getElementById("spinBtn");
-const resetBtn = document.getElementById("resetBtn");
+const resetBtn= document.getElementById("resetBtn");
+const syncStatus = document.getElementById("sync-status");
 
-let counts = JSON.parse(localStorage.getItem(key) || "{}");
-let lastPicked = localStorage.getItem(lastKey);
-names.forEach(n => counts[n] ??= 0);
+// Lokaler State — wird durch Firebase-Listener befüllt
+let counts     = {};
+let lastPicked = null;
 
+names.forEach(n => counts[n] = 0);
+
+// ── Canvas ──────────────────────────────────────────────────
 function resize() {
   const size = Math.min(420, window.innerWidth * 0.92);
-  const dpr = window.devicePixelRatio || 1;
+  const dpr  = window.devicePixelRatio || 1;
   canvas.width = canvas.height = size * dpr;
   canvas.style.width = canvas.style.height = size + "px";
   ctx.setTransform(dpr,0,0,dpr,0,0);
   return size;
 }
 
-let size = resize();
+let size   = resize();
 let center = size / 2;
 let radius = center - 10;
-let slice = 2 * Math.PI / names.length;
-let rot = 0;
+let slice  = 2 * Math.PI / names.length;
+let rot    = 0;
 
 function draw() {
   ctx.clearRect(0, 0, size, size);
   for(let i = 0; i < names.length; i++) {
-    const n = names[i];
     const s = rot + i * slice;
     ctx.beginPath();
     ctx.moveTo(center, center);
     ctx.arc(center, center, radius, s, s + slice);
-    
-    // Vodafone Farbschema
     ctx.fillStyle = i % 2 ? "#e60000" : "#ff3333";
     ctx.fill();
     ctx.strokeStyle = "white";
     ctx.lineWidth = 2;
     ctx.stroke();
-
     ctx.save();
     ctx.translate(center, center);
     ctx.rotate(s + slice / 2);
@@ -249,46 +278,58 @@ function draw() {
     ctx.textBaseline = "middle";
     ctx.fillStyle = "white";
     ctx.font = "bold 15px Arial";
-    ctx.fillText(n, radius - 18, 0);
+    ctx.fillText(names[i], radius - 18, 0);
     ctx.restore();
   }
 }
 draw();
 
+// ── Leaderboard rendern ─────────────────────────────────────
 function renderBoard() {
-  const rows = names.map(n => ({n: n, count: counts[n]}))
+  const rows = names
+    .map(n => ({ n, count: counts[n] || 0 }))
     .sort((a,b) => b.count - a.count || a.n.localeCompare(b.n));
+
   const tb = document.getElementById("leaderBody");
   tb.innerHTML = "";
   rows.forEach((r, i) => {
     const tr = document.createElement("tr");
-    if(i === 0) tr.classList.add("leader");
+    if(i === 0 && r.count > 0) tr.classList.add("leader");
     if(r.n === lastPicked) tr.classList.add("last-picked");
-    tr.innerHTML = "<td>" + r.n + "</td><td class='count'>" + r.count + "</td>";
+    tr.innerHTML = `<td>${r.n}</td><td class='count'>${r.count}</td>`;
     tb.appendChild(tr);
   });
 }
 renderBoard();
 
-function getWeightedIndex() {
-  const sortedNames = [...names].sort((a, b) => counts[a] - counts[b]);
-  const bottomFive = sortedNames.slice(0, 5);
+// ── Firebase-Listener: Echtzeit-Sync für ALLE Nutzer ────────
+countsRef.on('value', snapshot => {
+  const data = snapshot.val() || {};
+  names.forEach(n => counts[n] = data[n] || 0);
+  renderBoard();
+  syncStatus.textContent = "✅ Live – everyone sees the same data";
+});
 
+lastRef.on('value', snapshot => {
+  lastPicked = snapshot.val();
+  renderBoard();
+});
+
+// ── Gewichteter Zufalls-Index ───────────────────────────────
+function getWeightedIndex() {
+  const sortedNames = [...names].sort((a,b) => (counts[a]||0) - (counts[b]||0));
+  const bottomFive  = sortedNames.slice(0, 5);
   let pool = [];
   names.forEach((name, index) => {
     let weight = 1;
-    if (counts[name] === 0) weight = 3;
+    if ((counts[name]||0) === 0) weight = 3;
     else if (bottomFive.includes(name)) weight = 2;
-
-    for (let i = 0; i < weight; i++) {
-      pool.push(index);
-    }
+    for (let i = 0; i < weight; i++) pool.push(index);
   });
-
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-function mod(n, m) { return ((n % m) + m) % m; }
+function mod(n,m) { return ((n%m)+m)%m; }
 const pointerAngle = -Math.PI / 2;
 
 function selectedIndexForRotation(rotation) {
@@ -296,63 +337,60 @@ function selectedIndexForRotation(rotation) {
   return Math.floor(angleAtPointer / slice);
 }
 
+// ── Spin ────────────────────────────────────────────────────
 spinBtn.onclick = () => {
   if (spinBtn.disabled) return;
   spinBtn.disabled = true;
-  document.getElementById("result").textContent = "Dreht...";
+  document.getElementById("result").textContent = "Spinning…";
 
   const targetIdx = getWeightedIndex();
   const baseTarget = pointerAngle - (targetIdx + 0.5) * slice;
   const full = 2 * Math.PI;
-  const minSpins = 6;
-  const k = Math.ceil((rot - baseTarget) / full) + minSpins;
-  const end = baseTarget + k * full;
-
+  const k    = Math.ceil((rot - baseTarget) / full) + 6;
+  const end  = baseTarget + k * full;
   const start = rot;
-  const t0 = performance.now();
+  const t0   = performance.now();
   const duration = 4000;
 
-  function easeOutCubic(p) { return 1 - Math.pow(1 - p, 3); }
+  function easeOutCubic(p) { return 1 - Math.pow(1-p, 3); }
 
   function anim(t) {
     const p = Math.min((t - t0) / duration, 1);
-    const e = easeOutCubic(p);
-    rot = start + (end - start) * e;
+    rot = start + (end - start) * easeOutCubic(p);
     draw();
     if (p < 1) {
-        requestAnimationFrame(anim);
+      requestAnimationFrame(anim);
     } else {
-      const sel = selectedIndexForRotation(rot);
+      const sel   = selectedIndexForRotation(rot);
       const picked = names[sel];
 
-      counts[picked] = (counts[picked] || 0) + 1;
-      lastPicked = picked;
+      // In Firebase schreiben — alle Nutzer bekommen automatisch das Update
+      countsRef.child(picked).transaction(current => (current || 0) + 1);
+      lastRef.set(picked);
 
-      localStorage.setItem(key, JSON.stringify(counts));
-      localStorage.setItem(lastKey, picked);
-
-      renderBoard();
-      document.getElementById("result").textContent = "🎉 Ausgewählt: " + picked;
+      document.getElementById("result").textContent = "🎉 Selected: " + picked;
       spinBtn.disabled = false;
     }
   }
   requestAnimationFrame(anim);
 };
 
+// ── Reset ────────────────────────────────────────────────────
 resetBtn.onclick = () => {
-  names.forEach(n => counts[n] = 0);
-  lastPicked = null;
-  localStorage.removeItem(key);
-  localStorage.removeItem(lastKey);
-  renderBoard();
+  if (!confirm("Reset all counts for all users?")) return;
+  const resetData = {};
+  names.forEach(n => resetData[n] = 0);
+  countsRef.set(resetData);
+  lastRef.set(null);
   document.getElementById("result").textContent = "";
 };
 
+// ── Resize ───────────────────────────────────────────────────
 window.addEventListener("resize", () => {
-  size = resize();
+  size   = resize();
   center = size / 2;
   radius = center - 10;
-  slice = 2 * Math.PI / names.length;
+  slice  = 2 * Math.PI / names.length;
   draw();
 });
 </script>
