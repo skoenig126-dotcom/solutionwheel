@@ -223,13 +223,14 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
 // Datenbankpfade
+const wheelRef  = db.ref('solutionwheel');
 const countsRef = db.ref('solutionwheel/counts');
 const lastRef   = db.ref('solutionwheel/last');
 
 // ════════════════════════════════════════════════════════════
 // App-Logik
 // ════════════════════════════════════════════════════════════
-const names = ["Mathias","Prachee","Argetim","Ayse","Shramik","Joana","Lubna","Sandeep","Wasim","Stephan"];
+const names = ["Mathias","Prachee","Argetim","Ayse","Shramik","Joana","Lubna","Sandeep","Wasim","Stephan","Ali"];
 
 const canvas  = document.getElementById("wheel");
 const ctx     = canvas.getContext("2d");
@@ -240,8 +241,11 @@ const syncStatus = document.getElementById("sync-status");
 // Lokaler State — wird durch Firebase-Listener befüllt
 let counts     = {};
 let lastPicked = null;
+let dataReady  = false;
+let isSpinning = false;
 
 names.forEach(n => counts[n] = 0);
+spinBtn.disabled = true;
 
 // ── Canvas ──────────────────────────────────────────────────
 function resize() {
@@ -305,8 +309,10 @@ renderBoard();
 // ── Firebase-Listener: Echtzeit-Sync für ALLE Nutzer ────────
 countsRef.on('value', snapshot => {
   const data = snapshot.val() || {};
-  names.forEach(n => counts[n] = data[n] || 0);
+  names.forEach(n => counts[n] = Number(data[n]) || 0);
   renderBoard();
+  dataReady = true;
+  if (!isSpinning) spinBtn.disabled = false;
   syncStatus.textContent = "✅ Live – everyone sees the same data";
 });
 
@@ -315,18 +321,13 @@ lastRef.on('value', snapshot => {
   renderBoard();
 });
 
-// ── Gewichteter Zufalls-Index ───────────────────────────────
-function getWeightedIndex() {
-  const sortedNames = [...names].sort((a,b) => (counts[a]||0) - (counts[b]||0));
-  const bottomFive  = sortedNames.slice(0, 5);
-  let pool = [];
-  names.forEach((name, index) => {
-    let weight = 1;
-    if ((counts[name]||0) === 0) weight = 3;
-    else if (bottomFive.includes(name)) weight = 2;
-    for (let i = 0; i < weight; i++) pool.push(index);
-  });
-  return pool[Math.floor(Math.random() * pool.length)];
+// ── Zufall nur unter den niedrigsten Scores ─────────────────
+function getLowestScoreName(sourceCounts) {
+  const lowestCount = Math.min(...names.map(name => sourceCounts[name] || 0));
+  const candidates = names
+    .filter(name => (sourceCounts[name] || 0) === lowestCount);
+
+  return candidates[Math.floor(Math.random() * candidates.length)];
 }
 
 function mod(n,m) { return ((n%m)+m)%m; }
@@ -339,11 +340,36 @@ function selectedIndexForRotation(rotation) {
 
 // ── Spin ────────────────────────────────────────────────────
 spinBtn.onclick = () => {
-  if (spinBtn.disabled) return;
+  if (spinBtn.disabled || !dataReady) return;
+  isSpinning = true;
   spinBtn.disabled = true;
   document.getElementById("result").textContent = "Spinning…";
 
-  const targetIdx = getWeightedIndex();
+  wheelRef.transaction(current => {
+    current = current || {};
+    current.counts = current.counts || {};
+    names.forEach(name => current.counts[name] = Number(current.counts[name]) || 0);
+
+    const picked = getLowestScoreName(current.counts);
+    current.counts[picked] += 1;
+    current.last = picked;
+
+    return current;
+  }, (error, committed, snapshot) => {
+    if (error || !committed) {
+      document.getElementById("result").textContent = "Could not save selection.";
+      isSpinning = false;
+      spinBtn.disabled = false;
+      return;
+    }
+
+    const picked = snapshot.val().last;
+    spinToName(picked);
+  });
+};
+
+function spinToName(picked) {
+  const targetIdx = names.indexOf(picked);
   const baseTarget = pointerAngle - (targetIdx + 0.5) * slice;
   const full = 2 * Math.PI;
   const k    = Math.ceil((rot - baseTarget) / full) + 6;
@@ -361,19 +387,13 @@ spinBtn.onclick = () => {
     if (p < 1) {
       requestAnimationFrame(anim);
     } else {
-      const sel   = selectedIndexForRotation(rot);
-      const picked = names[sel];
-
-      // In Firebase schreiben — alle Nutzer bekommen automatisch das Update
-      countsRef.child(picked).transaction(current => (current || 0) + 1);
-      lastRef.set(picked);
-
       document.getElementById("result").textContent = "🎉 Selected: " + picked;
+      isSpinning = false;
       spinBtn.disabled = false;
     }
   }
   requestAnimationFrame(anim);
-};
+}
 
 // ── Reset ────────────────────────────────────────────────────
 resetBtn.onclick = () => {
