@@ -16,9 +16,6 @@
   --tile-size: 420px;
   --voda-red: #e60000;
   --voda-light-red: #ff4d4d;
-  --grey-btn-bg: rgba(0,0,0,0.08);
-  --grey-btn-border: rgba(0,0,0,0.16);
-  --grey-btn-text: rgba(0,0,0,0.55);
 }
 body {
   margin:0; padding:32px 12px 40px;
@@ -120,19 +117,6 @@ button:disabled { opacity:.6; cursor:not-allowed; }
   font-size:16px;
   color: rgba(0,0,0,0.82);
 }
-#resetBtn{
-  padding:6px 10px;
-  font-size:12px;
-  border-radius:8px;
-  background: var(--grey-btn-bg);
-  color: var(--grey-btn-text);
-  border:1px solid var(--grey-btn-border);
-  opacity:0.9;
-}
-#resetBtn:hover{
-  opacity:1;
-  background: rgba(0,0,0,0.10);
-}
 table {
   width:100%;
   border-collapse:collapse;
@@ -186,7 +170,6 @@ tr.last-picked td:first-child::after { content:" 🎉"; }
     <div class="panel">
       <div class="panel-header">
         <h3>Leaderboard</h3>
-        <button id="resetBtn" type="button">Reset</button>
       </div>
       <table>
         <thead>
@@ -230,12 +213,11 @@ const lastRef   = db.ref('solutionwheel/last');
 // ════════════════════════════════════════════════════════════
 // App-Logik
 // ════════════════════════════════════════════════════════════
-const names = ["Mathias","Prachee","Argetim","Ayse","Shramik","Joana","Lubna","Sandeep","Wasim","Stephan","Ali"];
+const names = ["Mathias","Ayse","Shramik","Joana","Lubna","Sandeep","Wasim","Stephan","Ali"];
 
 const canvas  = document.getElementById("wheel");
 const ctx     = canvas.getContext("2d");
 const spinBtn = document.getElementById("spinBtn");
-const resetBtn= document.getElementById("resetBtn");
 const syncStatus = document.getElementById("sync-status");
 
 // Lokaler State — wird durch Firebase-Listener befüllt
@@ -394,16 +376,6 @@ function spinToName(picked) {
   }
   requestAnimationFrame(anim);
 }
-
-// ── Reset ────────────────────────────────────────────────────
-resetBtn.onclick = () => {
-  if (!confirm("Reset all counts for all users?")) return;
-  const resetData = {};
-  names.forEach(n => resetData[n] = 0);
-  countsRef.set(resetData);
-  lastRef.set(null);
-  document.getElementById("result").textContent = "";
-};
 
 // ── Resize ───────────────────────────────────────────────────
 window.addEventListener("resize", () => {
